@@ -217,7 +217,13 @@ def normalise_url(url: str) -> str:
 
 
 def database_url() -> str:
-    return normalise_url(env("DATABASE_URL")) or f"sqlite:///{ROOT / 'db' / 'planner.db'}"
+    url = env("DATABASE_URL") or env("POSTGRES_URL")      # the Neon integration sets one of these
+    if url:
+        return normalise_url(url)
+    if env("VERCEL"):
+        raise RuntimeError("No database configured: connect Neon in Vercel (Storage) so DATABASE_URL is set, "
+                           "then redeploy")
+    return f"sqlite:///{ROOT / 'db' / 'planner.db'}"
 
 
 @lru_cache

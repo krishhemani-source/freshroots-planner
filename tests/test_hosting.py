@@ -83,3 +83,14 @@ def test_reset_demo_clears_runs_and_kill_switch_but_keeps_ai_cache(clean_data, d
         assert s.scalar(select(func.count()).select_from(Run)) == 0
         assert s.scalar(select(func.count()).select_from(AICache)) > 0
     assert get_mode(db_url) == "ACTIVE"
+
+
+def test_hosted_without_a_database_gives_a_clear_error(monkeypatch):
+    from planner.db import database_url
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("POSTGRES_URL", raising=False)
+    monkeypatch.setenv("VERCEL", "1")
+    with pytest.raises(RuntimeError, match="connect Neon"):
+        database_url()
+    monkeypatch.setenv("POSTGRES_URL", "postgres://u:p@h/db")
+    assert database_url() == "postgresql+psycopg://u:p@h/db"
