@@ -1,0 +1,134 @@
+# Freshroots demand planning: every threshold lives here, not in the code.
+# Change a number, re-run, and the system follows it.
+
+data:
+  dir: data                      # where the SAP / Zoho export files land
+  manifest_file: export_manifest.csv
+  files:
+    sku_master: sku_master.csv
+    distributors: distributors.csv
+    sales_weekly: sales_weekly.csv
+    stock_on_hand: stock_on_hand.csv
+    zoho_open_pos: zoho_open_pos.csv
+
+# ---------------------------------------------------------------------------
+# Step 3: data check gate. Any failure stops the run. Never forecast on bad data.
+data_checks:
+  max_file_age_hours: 48
+  max_null_pct: 2.0              # % of nulls allowed in any key column
+  max_sku_count_diff_pct: 5.0    # vs the SKU master
+  sales_window_weeks: 12         # SKUs with sales in this window are counted
+  key_columns:
+    sku_master: [sku_id, category, perishability, standard_order_qty, unit_cost_inr, launch_date]
+    distributors: [distributor_id, city, tier]
+    sales_weekly: [week_start, sku_id, distributor_id, units_sold]
+    stock_on_hand: [sku_id, on_hand_units]
+    zoho_open_pos: [po_number, sku_id, qty_ordered, expected_arrival_date]
+
+# ---------------------------------------------------------------------------
+# Step 4: Raghav's rules (used from milestone 2)
+rules:
+  history_weeks_long: 12         # avg_12w
+  history_weeks_short: 4         # avg_4w
+  festival_months: [10, 11, 3]   # October, November, March
+  festival_uplift: 1.25          # applied to demand_rate before any threshold check
+  include_on_order: true         # effective_stock = on_hand + open Zoho POs
+  high_demand_ratio: 1.20        # avg_4w > 1.20 x avg_12w
+  high_demand_order_multiple: 1.5
+  cover_weeks:
+    standard: {min: 6, max: 14}
+    high_perishability: {min: 3, max: 4}
+
+routing:                         # any one of these sends a SKU to Track B
+  new_sku_min_weeks: 12
+  distributor_top_n: 20
+  distributor_swing_pct: 30
+  distributor_recent_weeks: 2
+  min_distributor_weekly_units: 50   # ignore tiny distributors (noise, not signal)
+  sudden_swing_pct: 50
+  max_qty_multiple: 3            # recommended qty > 3 x standard_order_qty
+
+# ---------------------------------------------------------------------------
+# Steps 5-6: AI analysis of Track B exceptions (Gemini free tier)
+ai:
+  model: gemini-3.6-flash          # stable, free tier, reliable in tests (22 Oct 2026); GEMINI_MODEL in .env overrides
+  request_timeout_seconds: 90      # a slow or overloaded model fails fast instead of hanging the run
+  batch_size: 10                   # exception SKUs per request
+  requests_per_minute: 5
+  daily_request_cap: 200
+  max_retries_on_rate_limit: 3     # 429 / RESOURCE_EXHAUSTED
+  default_retry_seconds: 30        # if the API gives no retry delay
+  max_retries_on_server_busy: 2    # 500 / 503 "high demand": wait and retry this batch
+  server_busy_retry_seconds: 15    # doubled on each retry
+  invalid_output_retries: 1
+  max_qty_multiple: 4              # suggested range clamped to [0, 4 x standard_order_qty]
+
+# Kill switch circuit breakers (the mode itself lives in the database)
+kill_switch:
+  trip_on_daily_cap: true          # switch to AI_OFF when the daily cap is reached; back to ACTIVE next day
+  batch_failure_trip_pct: 50       # switch to AI_OFF if more than this % of a run's AI batches fail
+
+# Scorecard kill criteria: if a value goes above `max`, the scorecard shows it in red
+scorecard:
+  weeks_shown: 8
+  kill_criteria:
+    override_rate_pct:
+      max: 30
+      label: Raghav overrides the AI suggestion
+      why: AI ranges are not helping; rethink the context pack or switch AI off
+    track_b_share_pct:
+      max: 25
+      label: SKUs sent to Track B (exceptions)
+      why: Rules are not clearing enough SKUs; Raghav's workload is not falling
+    data_check_failures_per_week:
+      max: 1
+      label: Data check failures this week
+      why: SAP / Zoho exports are unreliable; fix the feed before trusting runs
+    ai_quota_used_pct:
+      max: 80
+      label: Gemini daily quota used today
+      why: Close to the free-tier cap; batches may start failing
+
+# Step 1: scheduled runs
+schedule:
+  days: mon,thu
+  hour: 6
+  minute: 0
+  timezone: Asia/Kolkata
+
+# ---------------------------------------------------------------------------
+# Backtest (rules only, never calls the AI)
+backtest:
+  weeks: 52
+  warning_window_weeks: 6          # a flag counts as "in advance" if raised 1-6 weeks before
+  lost_margin_pct_of_cost: 40      # ₹ lost per unit of missed sale, as % of unit cost
+  writeoff_pct_of_cost: 100        # ₹ lost per unit written off
+  # Freshroots' reported losses (₹ lakh per quarter), used to scale simulated savings
+  reported_stockout_loss_lakh: [18, 22]
+  reported_writeoff_loss_lakh: [10, 12]
+
+# ---------------------------------------------------------------------------
+# Synthetic data generator
+generator:
+  seed: 42
+  n_skus: 400
+  n_distributors: 1200
+  weeks_history: 156             # 3 years
+  n_new_launches: 10             # launched within the last 12 weeks
+  distributors_per_sku: [25, 40]
+  median_weekly_units_per_sku: 1200
+  share_high_perishability: 0.25
+  competitor_scheme_distributors: 3
+  competitor_scheme_drop: [0.45, 0.65]   # sales fall by this share
+  # One-off events in the last 4 weeks, so every exception type shows up in the demo
+  one_off_events: {promo_spike: 2, demand_collapse: 2, duplicate_bulk_po: 2}
+  # Seasonality multipliers by month (1 = normal)
+  seasonality: {1: 0.97, 2: 0.98, 3: 1.12, 4: 1.0, 5: 0.96, 6: 0.95,
+                7: 0.94, 8: 0.97, 9: 1.02, 10: 1.15, 11: 1.20, 12: 1.0}
+  # Baseline monthly Excel process used to simulate history and stock
+  baseline_review_weeks: 4
+  baseline_data_lag_weeks: 3
+  baseline_order_every_weeks: {low: 4, medium: 4, high: 1}   # perishables replenished weekly
+  baseline_safety_weeks: {low: 4, medium: 4, high: 1}
+  lead_time_weeks: {low: 2, medium: 2, high: 1}
+  shelf_life_weeks: {low: 26, medium: 16, high: 4}

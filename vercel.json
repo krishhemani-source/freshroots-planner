@@ -1,0 +1,16 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/index" }
+  ],
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 300,
+      "excludeFiles": "{node_modules/**,.next/**,app/**,components/**,lib/**,tests/**,scripts/**,reports/**,public/**,**/test_*.py}"
+    }
+  },
+  "crons": [
+    { "path": "/api/cron/scheduled-run", "schedule": "30 0 * * 1,4" }
+  ]
+}
