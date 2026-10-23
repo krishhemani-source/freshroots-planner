@@ -2,7 +2,7 @@
 # Change a number, re-run, and the system follows it.
 
 data:
-  dir: data                      # where the SAP / Zoho export files land
+  dir: data                      # where the SAP / Zoho export files land (DATASET=synthetic)
   manifest_file: export_manifest.csv
   files:
     sku_master: sku_master.csv
@@ -10,6 +10,16 @@ data:
     sales_weekly: sales_weekly.csv
     stock_on_hand: stock_on_hand.csv
     zoho_open_pos: zoho_open_pos.csv
+
+# The professor's case dataset (DATASET=case in .env). scripts/import_case_data.py converts
+# the files in source_dir into the export format above, in dir.
+case_data:
+  source_dir: prof_data
+  dir: data_case
+  label: "Professor's case data (15 SKUs)"
+  # The case SKU master has no unit cost. These are ASSUMED placeholders so ₹ figures can be shown.
+  assumed_unit_cost_inr: {Beverage: 30, Snack: 40, Staple: 60, Dairy Alt: 90, Condiment: 120}
+  default_unit_cost_inr: 50
 
 # ---------------------------------------------------------------------------
 # Step 3: data check gate. Any failure stops the run. Never forecast on bad data.

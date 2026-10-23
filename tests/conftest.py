@@ -43,3 +43,4 @@ def never_call_real_services(monkeypatch):
     """Tests always use the mock AI and mock Zoho, whatever .env says."""
     monkeypatch.setenv("AI_MODE", "mock")
     monkeypatch.setenv("ZOHO_MODE", "mock")
+    monkeypatch.setenv("DATASET", "synthetic")

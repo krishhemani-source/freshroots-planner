@@ -299,9 +299,10 @@ def generate(cfg: Config, out_dir: Path | None = None, as_of: date | None = None
     }
 
 
-def write_manifest(cfg: Config, out_dir: Path, row_counts: dict, extracted_at: datetime) -> None:
+def write_manifest(cfg: Config, out_dir: Path, row_counts: dict, extracted_at: datetime,
+                   dataset: str = "Synthetic data (400 SKUs)") -> None:
     """Control file an SAP/Zoho export job writes next to its data files."""
     source = {"zoho_open_pos": "Zoho Inventory"}
     pd.DataFrame([{"file_name": cfg.data.files[n], "source_system": source.get(n, "SAP"),
-                   "extracted_at": extracted_at.isoformat(timespec="seconds"), "row_count": c}
+                   "extracted_at": extracted_at.isoformat(timespec="seconds"), "row_count": c, "dataset": dataset}
                   for n, c in row_counts.items()]).to_csv(out_dir / cfg.data.manifest_file, index=False)

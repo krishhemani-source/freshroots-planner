@@ -12,3 +12,4 @@ prof_data/
 tsconfig.tsbuildinfo
 *.tsbuildinfo
 .DS_Store
+data_case/

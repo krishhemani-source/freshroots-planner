@@ -49,7 +49,7 @@ export interface Status {
   latest_check: { run_date: string; attempted_at: string; trigger: string; passed: boolean; results: CheckResult[] } | null;
   pending_reviews: number;
   ai_today: { used: number; cap: number };
-  modes: { ai: string; zoho: string; model: string };
+  modes: { ai: string; zoho: string; model: string; dataset: string | null };
 }
 
 // ---- fetching ---------------------------------------------------------------------------

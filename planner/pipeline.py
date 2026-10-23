@@ -53,7 +53,8 @@ def run_planning(run_date: date | None = None, trigger: str = "manual", cfg: Con
         return {"run_date": str(run_date), "status": "refused", "message": message}
 
     # Step 3: data check gate
-    gate = run_data_checks(cfg, now=now, folder=export_folder(cfg, db_url))
+    folder = export_folder(cfg, db_url)
+    gate = run_data_checks(cfg, now=now, folder=folder)
     with Session() as s:
         s.add(DataCheckLog(run_date=run_date, attempted_at=now.replace(tzinfo=None), trigger=trigger,
                            passed=gate.passed, results=to_json(gate.to_records())))
@@ -89,7 +90,7 @@ def run_planning(run_date: date | None = None, trigger: str = "manual", cfg: Con
             s.delete(existing)
             s.flush()
         run = Run(run_date=run_date, status="completed", trigger=trigger, started_at=now.replace(tzinfo=None),
-                  inputs_summary=inputs_summary(gate.frames), counts=counts, message="")
+                  inputs_summary=inputs_summary(gate.frames, dataset_label(cfg, folder)), counts=counts, message="")
         run.decisions = [SkuDecision(
             sku_id=d["sku_id"], name=d["name"], category=d["category"], perishability=d["perishability"],
             rule_fired=d["rule_fired"], track=d["track"],
@@ -135,9 +136,20 @@ def summarise(d: pd.DataFrame) -> dict:
     })
 
 
-def inputs_summary(frames: dict[str, pd.DataFrame]) -> dict:
+def dataset_label(cfg: Config, folder) -> str:
+    """Which dataset the exports came from, as written in the export manifest."""
+    manifest = folder / cfg.data.manifest_file
+    if manifest.exists():
+        labels = pd.read_csv(manifest).get("dataset")
+        if labels is not None and labels.notna().any():
+            return str(labels.dropna().iloc[0])
+    return "Unlabelled exports"
+
+
+def inputs_summary(frames: dict[str, pd.DataFrame], dataset: str = "") -> dict:
     sales = frames["sales_weekly"]
     return {
+        "dataset": dataset,
         "rows": {name: len(df) for name, df in frames.items()},
         "sales_weeks": f"{sales.week_start.min()} to {sales.week_start.max()}",
         "open_po_units": int(frames["zoho_open_pos"]["qty_ordered"].sum()),

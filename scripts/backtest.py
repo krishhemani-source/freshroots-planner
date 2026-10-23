@@ -85,6 +85,9 @@ of judgment call the exception queue exists for.
 
 if __name__ == "__main__":
     cfg = load_config()
+    if not (cfg.data.folder / "stock_history_weekly.csv").exists():
+        sys.exit("The backtest needs the synthetic dataset (3 years with stock history). "
+                 "Run it with DATASET=synthetic.")
     result = run_backtest(cfg)
     out = ROOT / "reports"
     out.mkdir(exist_ok=True)

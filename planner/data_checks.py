@@ -96,7 +96,8 @@ def run_data_checks(cfg: Config, now: datetime | None = None, folder: Path | Non
         if missing_cols:
             results.append(CheckResult("nulls", file_name, False, f"Key column(s) missing: {', '.join(missing_cols)}"))
             continue
-        null_pct = {c: 100 * df[c].isna().mean() if len(df) else 100.0 for c in key_cols}
+        # an empty file has no nulls (e.g. no open POs); a missing file is caught by check 1
+        null_pct = {c: 100 * df[c].isna().mean() if len(df) else 0.0 for c in key_cols}
         worst = max(null_pct, key=null_pct.get) if null_pct else None
         worst_pct = null_pct.get(worst, 0.0)
         results.append(CheckResult(

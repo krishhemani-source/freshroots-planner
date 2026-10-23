@@ -39,6 +39,9 @@ export default function Header() {
               Next run AI: {data.modes.ai === "live" ? data.modes.model : "mock"}
             </span>
             <span className="chip" title="ZOHO_MODE in .env">Zoho: {data.modes.zoho}</span>
+            {data.modes.dataset && (
+              <span className="chip" title="Dataset of the latest run (from the export manifest)">Data: {data.modes.dataset}</span>
+            )}
           </span>
         )}
       </header>

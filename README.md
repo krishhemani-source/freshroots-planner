@@ -54,6 +54,7 @@ Open http://localhost:3000 and press **Run now**.
 | Task | Command |
 |---|---|
 | Fresh demo state (data dated today, empty queue) | `.venv/bin/python scripts/reset_demo.py` |
+| Use the professor's case data instead | `.venv/bin/python scripts/import_case_data.py`, then `DATASET=case` (see below) |
 | One planning run from the terminal | `.venv/bin/python scripts/run_planning.py` |
 | Same, with real Gemini | `AI_MODE=live .venv/bin/python scripts/run_planning.py` |
 | Check the Gemini key and model (1 request) | `.venv/bin/python scripts/check_gemini.py` |
@@ -158,6 +159,36 @@ stockouts 1-6 weeks ahead, cut simulated stockout losses by about 89%, and are e
 ₹9-11 lakh per quarter on Freshroots' reported losses. Write-offs on perishables go **up**, which is a
 discussion point for the case. Details and caveats: [reports/backtest_summary.md](reports/backtest_summary.md).
 
+## Professor's case data
+
+The professor's seed files (15 SKUs, 4 distributors, 16 weeks of sales, current inventory and a festival
+calendar) can be used instead of the synthetic data. Put them in `prof_data/` (kept out of git), then:
+
+```bash
+.venv/bin/python scripts/import_case_data.py          # prof_data/ -> data_case/, in our export format
+DATASET=case .venv/bin/python scripts/reset_demo.py   # clean state on the case data
+DATASET=case npm run dev                              # or set DATASET=case in .env
+```
+
+The header shows which dataset the latest run used. How the gaps are filled (all in `planner/case_data.py`):
+
+- ISO weeks (`2026-W27`) become the Monday of that week.
+- Sales are per SKU only, so they are booked to the SKU's one distributor.
+- **There is no unit cost.** Every ₹ figure on this dataset uses an *assumed* cost per category
+  (`case_data.assumed_unit_cost_inr` in config.yaml: Beverage ₹30, Snack ₹40, Staple ₹60, Dairy Alt ₹90,
+  Condiment ₹120).
+- No open POs are given, so on-order stock is 0.
+- Distributors have no city or tier; the region is used as the city.
+- The import time counts as the extraction time. The inventory's own As_Of_Date (19 Oct) is kept in the file.
+- The calendar's festival months are checked against config.yaml. They match: Oct, Nov and Mar.
+
+The backtest needs the synthetic dataset, because 16 weeks with no stock history is too short to replay.
+
+On the case data, the rules clear 12 of 15 SKUs. Three go to Raghav because the quantities are large:
+- Mango Drink: up about 35% since week 39, HIGH_DEMAND + STOCKOUT_RISK
+- Brown Rice: stockout risk
+- Peanut Butter: stockout risk
+
 ---
 
 ## Hosting (Vercel + Neon)
@@ -185,7 +216,8 @@ disk, the export files are uploaded to the database from the laptop.
    .venv/bin/python scripts/reset_demo.py --hosted
    ```
 
-   This resets Neon and uploads fresh exports.
+   This resets Neon and uploads fresh exports. For the professor's data online instead, run
+   `DATASET=case .venv/bin/python scripts/reset_demo.py --hosted`.
 5. Open the site, sign in with the passcode, and press **Run now**.
 
 Vercel Cron calls `/api/cron/scheduled-run` on Mon and Thu at 00:30 UTC (06:00 IST). The run uses

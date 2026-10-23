@@ -55,7 +55,8 @@ def status(cfg: Config, db_url: str | None = None) -> dict:
         "pending_reviews": pending,
         "ai_today": {"used": requests_today(db_url, now), "cap": cfg.ai["daily_request_cap"]},
         "modes": {"ai": env("AI_MODE", "mock").lower(), "zoho": env("ZOHO_MODE", "mock").lower(),
-                  "model": env("GEMINI_MODEL") or cfg.ai["model"]},
+                  "model": env("GEMINI_MODEL") or cfg.ai["model"],
+                  "dataset": (latest.inputs_summary or {}).get("dataset") if latest else None},
     }
 
 

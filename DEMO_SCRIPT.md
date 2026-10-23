@@ -2,6 +2,11 @@
 
 Normal run → exceptions review → draft POs → scorecard → corrupted-data run showing the gate.
 
+> **Which data?** The script below uses the synthetic 400-SKU data, which has every exception type. To
+> show the professor's own 15-SKU case instead, prefix the commands with `DATASET=case`. On the case
+> data, the exceptions to open are **SKU001** (Mango Drink festival spike), **SKU003** and **SKU013**. ₹ figures on
+> it use assumed unit costs.
+
 ## Before you present (10 minutes ahead)
 
 1. Fresh state, with data dated today:

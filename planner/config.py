@@ -76,12 +76,17 @@ class Config(BaseModel):
     kill_switch: dict
     schedule: dict
     scorecard: dict
+    case_data: dict
 
 
 def load_config(path: Path | None = None) -> Config:
+    """DATASET=case in .env switches the export folder to the professor's case data."""
     path = path or ROOT / "config.yaml"
     with open(path) as f:
-        return Config(**yaml.safe_load(f))
+        cfg = Config(**yaml.safe_load(f))
+    if env("DATASET", "synthetic").lower() == "case":
+        cfg.data.dir = cfg.case_data["dir"]
+    return cfg
 
 
 def env(name: str, default: str = "") -> str:
